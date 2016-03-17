@@ -11,13 +11,14 @@ var iconv = new Iconv('UTF-8', 'ISO-8859-1');
 var fileIn = fs.createReadStream(jsonPath, 'utf8');
 var fileOut = fs.createWriteStream(__dirname + '/out.csv', 'utf8');
 var jsonStream = JSONStream.parse();
-
-fileIn.pipe(jsonStream);
+var es = require('event-stream');
 
 var header;
 var i = 0;
-jsonStream
-    .on('data', function(data) {
+
+fileIn.pipe(es.split())                  //split stream to break on newlines
+    .pipe(es.mapSync(function (data) { //turn this async function into a stream
+        data = JSON.parse(data);
         if (!header) {
             header = Object.keys(data);
             fileOut.write(header.map(function(name) {return '"' + name + '"'}).join(',') + '\n');
@@ -37,5 +38,6 @@ jsonStream
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
         process.stdout.write("line " + i++);
-        fileOut.write(csvChunk);
-    });
+        return csvChunk;
+    }))
+    .pipe(fileOut);
